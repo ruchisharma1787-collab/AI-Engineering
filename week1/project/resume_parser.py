@@ -96,12 +96,10 @@ messages=[
     ]
 response = client.chat.completions.create(
     model=models, messages = messages, response_format=response_format)
-answer = response.choices[0].message.content
-raw_json = answer
-# print(raw_json)
-
-import json 
-job_details = json.loads(raw_json)
+job_raw_json = response.choices[0].message.content
+import json
+# print("Job response:", repr(job_raw_json))
+job_details = json.loads(job_raw_json)
 job = JobDetails(**job_details)
 # print(job.minimum_experience)
 # print(job.required_skills)
@@ -133,11 +131,184 @@ def extract_resume_text(file_path: str) -> str:
     else:
         raise ValueError("Unsupported file format. Use PDF or DOCX.")
 
-resume_path = Path("resume/sample_software_developer_resume.pdf")
+resume_folder = Path("resume")
+all_resumes = []
 
-resume_text = extract_resume_text(str(resume_path))
 
-print(resume_text)
+# print(resume_text)
+
+class Experience(BaseModel):
+    company: str
+    role: str
+    duration: str
+    description: str
+    skills_used: list[str]
+
+
+class Resume(BaseModel):
+    name: str
+    email: str
+    phone: str
+    total_exp_years: float
+    skills: list[str]
+    experiences: list[Experience]
+
+resume_schema = Resume.model_json_schema()
+# print(resume_schema)
+resume_system_prompt = f""" you are an expert HR assistant. Extract the resume details from the resume text into the following JSON structured format: {resume_schema}
+IMPORTANT:
+Do not return the schema itself.
+Fill the schema with actual information from the resume.
+If information is missing, do not invent it."""
+
+
+for file_path in resume_folder.iterdir():
+    if file_path.suffix.lower() in [".pdf", ".docx"]:
+        resume_text = extract_resume_text(str(file_path))
+
+        response = client.chat.completions.create(
+            model=models,
+            messages=[
+                {"role": "system", "content": resume_system_prompt},
+                {"role": "user", "content": resume_text}
+            ],
+            temperature=0,
+            response_format=response_format
+        )
+
+        raw_json = response.choices[0].message.content
+        resume_data = json.loads(raw_json)
+        resume = Resume(**resume_data)
+
+        all_resumes.append(resume)
+
+print("Total resumes parsed:", len(all_resumes))
+
+
+# part 3 : Matching the resume with the job description and calculating a match score to determine how well the candidate fits the job requirements
+class MatchResult(BaseModel):
+    score: float
+    details: dict
+match_schema = MatchResult.model_json_schema()
+# print(match_schema)
+
+
+match_system_prompt = f"""
+You are an expert technical recruiter.
+
+Compare the job description with the candidate's resume.
+
+Return a JSON object containing actual evaluation results,
+not the schema definition.
+
+The JSON must have:
+- score: a number between 0 and 100
+- details: an object containing:
+  - matched_skills
+  - missing_required_skills
+  - experience_match
+  - qualifications_match
+  - strengths
+  - improvement_areas
+
+Use this schema to understand the required structure:
+{match_schema}
+
+Do not copy the schema into your response.
+Do not invent candidate information.
+Return only the actual JSON result.
+"""
+
+
+
+def final_score(job, parsed_resume):
+    response = client.chat.completions.create(
+        model=models,
+        messages=[
+            {
+                "role": "system",
+                "content": match_system_prompt
+            },
+            {
+                "role": "user",
+                "content": f"""
+JOB DESCRIPTION:
+{job.model_dump_json()}
+
+CANDIDATE RESUME:
+{parsed_resume.model_dump_json()}
+
+Evaluate this candidate against the job description.
+Return the actual score and matching details as JSON.
+"""
+            }
+        ],
+        temperature=0,
+        response_format=response_format
+    )
+
+    raw_json = response.choices[0].message.content
+    print("LLM matching response:", repr(raw_json))
+
+    if not raw_json:
+        raise ValueError("LLM returned an empty matching response.")
+
+    result_data = json.loads(raw_json)
+
+    if "score" not in result_data or "details" not in result_data:
+        raise ValueError(
+            f"Unexpected matching response: {result_data}"
+        )
+
+    result = MatchResult(**result_data)
+    return result
+
+
+
+print("\n===== RESUME MATCHING RESULTS =====")
+
+results = []
+
+for index, parsed_resume in enumerate(all_resumes, start=1):
+    print(f"\nEvaluating Resume {index}: {parsed_resume.name}")
+
+    result = final_score(job, parsed_resume)
+
+    results.append({
+        "name": parsed_resume.name,
+        "email": parsed_resume.email,
+        "score": result.score,
+        "details": result.details
+    })
+
+    print(f"Match Score: {result.score}/100")
+    print("Matching Details:")
+
+    print(json.dumps(result.details, indent=4))
+
+print("\n===== CANDIDATE RANKING =====")
+
+ranked_results = sorted(
+    results,
+    key=lambda item: item["score"],
+    reverse=True
+)
+
+for rank, candidate in enumerate(ranked_results, start=1):
+    print(
+        f"{rank}. {candidate['name']} - "
+        f"{candidate['score']}/100"
+    )
+
+
+
+
+
+
+
+
+
+
 
         
 
