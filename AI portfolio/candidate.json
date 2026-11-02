@@ -1,0 +1,54 @@
+
+{
+  "name": "Ruchi Sharma",
+  "headline": "BTech CSE (AI) Student | Aspiring AI Engineer",
+  "education": {
+    "degree": "BTech CSE (AI)",
+    "institution": "Mandsaur University",
+    "year": "3rd Year",
+    "cgpa": 8.35
+  },
+  "career_goal": [
+    "AI Engineer",
+    "Machine Learning Engineer"
+  ],
+  "skills": [
+    "Python",
+    "Pandas",
+    "NumPy",
+    "LLMs",
+    "Prompt Engineering",
+    "API Calls",
+    "Data Structures and Algorithms",
+    "Git",
+    "GitHub"
+  ],
+  "projects": [
+    {
+      "name": "Resume Evaluator",
+      "status": "Completed",
+      "description": "An AI project for evaluating candidate suitability against a job description.",
+      "technologies": [
+        "Python",
+        "LLM API",
+        "Pydantic",
+        "JSON"
+      ],
+      "parsing_status": "Not verified"
+    },
+    {
+      "name": "AI Portfolio Chatbot",
+      "status": "In Progress",
+      "description": "An AI assistant that answers recruiter questions using verified candidate information."
+    }
+  ],
+  "experience": [],
+  "achievements": [
+    "Unstop Hackathon 2025 certificate"
+  ],
+  "certifications": [],
+  "social_links": {
+    "github": "https://github.com/ruchisharma1787-collab",
+    "linkedin": "https://www.linkedin.com/in/ruchi-sharma06/"
+  }
+}
